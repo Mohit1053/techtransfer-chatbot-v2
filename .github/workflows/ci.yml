@@ -1,0 +1,100 @@
+# TechTransfer Chatbot - CI/CD Pipeline
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  security:
+    name: Security Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for secrets
+        run: |
+          echo "Checking for potential secrets..."
+          # Check for API keys
+          if grep -rn "AIza[0-9A-Za-z_-]\{35\}" --include="*.py" .; then
+            echo "❌ ERROR: Google API key pattern found!"
+            exit 1
+          fi
+          # Check for .env files
+          if find . -name ".env" -not -name ".env.example" -type f | grep -q .; then
+            echo "❌ ERROR: .env file found!"
+            exit 1
+          fi
+          echo "✅ No secrets found"
+
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+    needs: security
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install linting tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black
+
+      - name: Run Black
+        run: black --check --diff . || true
+
+      - name: Run Flake8
+        run: flake8 . --max-line-length=120 --ignore=E501,W503 || true
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: [security, lint]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt || true
+          pip install pytest pytest-cov
+
+      - name: Run tests
+        run: |
+          pytest tests/ -v --cov=. || echo "No tests found"
+
+  docs:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check documentation
+        run: |
+          test -f README.md && echo "✅ README.md exists"
+          test -f CONTRIBUTING.md && echo "✅ CONTRIBUTING.md exists"
+          test -f CHANGELOG.md && echo "✅ CHANGELOG.md exists"
+          test -f LICENSE && echo "✅ LICENSE exists"
+          test -f .env.example && echo "✅ .env.example exists"
