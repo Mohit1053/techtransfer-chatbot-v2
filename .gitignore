@@ -128,3 +128,5 @@ reports/
 # Jupyter Notebooks
 # =============================================================================
 .ipynb_checkpoints/
+*.pyc
+.mcp.json
